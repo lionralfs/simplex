@@ -72,6 +72,7 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 		for i := range currentBaseVars {
 			B.SetCol(i, AT.RawRowView(currentBaseVars[i]-1))
 			cBData[i] = c.At(0, currentBaseVars[i]-1)
+			// cBData[i] = float64(2 * i)
 		}
 		y := mat.NewDense(1, constraintCount, cBData)
 		fmt.Printf("cBT vector:\n %v\n\n", mat.Formatted(y, mat.Prefix(" "), mat.Excerpt(8)))
@@ -97,8 +98,43 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 		}
 		fmt.Printf("Non-Base vars:\n %v\n\n", currentNonBaseVars)
 
+		for i := range currentNonBaseVars {
+			AN.SetCol(i, AT.RawRowView(i))
+			cNT.SetCol(i, []float64{c.At(0, i)})
+		}
+
+		y.Mul(y, AN)
+
 		fmt.Printf("AN matrix:\n %v\n\n", mat.Formatted(AN, mat.Prefix(" "), mat.Excerpt(8)))
-		fmt.Printf("cNT matrix:\n %v\n\n", mat.Formatted(cNT, mat.Prefix(" "), mat.Excerpt(8)))
+		fmt.Printf("y^T A_N vector:\n %v\n\n", mat.Formatted(y, mat.Prefix(" "), mat.Excerpt(8)))
+		fmt.Printf("cNT vector:\n %v\n\n", mat.Formatted(cNT, mat.Prefix(" "), mat.Excerpt(8)))
+
+		newBaseVar := -1
+		a := mat.NewDense(constraintCount, 1, nil)
+		for i := range currentNonBaseVars {
+			if cNT.At(0, i) > y.At(0, i) {
+				newBaseVar = currentNonBaseVars[i]
+				a.SetCol(0, AT.RawRowView(newBaseVar-1))
+				break
+			}
+		}
+		if newBaseVar < 0 {
+			// no appropriate value could be found -> algorithm terminates
+			// TODO: return actual result here
+			fmt.Println("done\n\n ")
+			return 13
+		}
+		fmt.Printf("new base var:\n %v\n\n", newBaseVar)
+		fmt.Printf("a vector:\n %v\n\n", mat.Formatted(a, mat.Prefix(" "), mat.Excerpt(8)))
+
+		// step 3: calculate Bd = a
+		a.Mul(Bi, a)
+
+		// step 4: find t so that b - t * d ≥ 0
+		// TODO
+
+		fmt.Printf("d vector:\n %v\n\n", mat.Formatted(a, mat.Prefix(" "), mat.Excerpt(8)))
+
 		i++
 	}
 
