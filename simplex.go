@@ -59,9 +59,9 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 	fmt.Printf("b vector:\n %v\n\n", mat.Formatted(b, mat.Prefix(" "), mat.Excerpt(8)))
 
 	// start iterating
-	i := 0
+	iterations := 0
 	for {
-		if i >= 1 {
+		if iterations > 2 {
 			break
 		}
 
@@ -74,11 +74,12 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 			cBData[i] = c.At(0, currentBaseVars[i]-1)
 			// cBData[i] = float64(2 * i)
 		}
+		fmt.Printf("B matrix:\n %v\n\n", mat.Formatted(B, mat.Prefix(" "), mat.Excerpt(8)))
 		y := mat.NewDense(1, constraintCount, cBData)
 		fmt.Printf("cBT vector:\n %v\n\n", mat.Formatted(y, mat.Prefix(" "), mat.Excerpt(8)))
 
 		Bi := mat.DenseCopyOf(B)
-		err := B.Inverse(Bi)
+		err := Bi.Inverse(B)
 		if err != nil {
 			panic("Inverse went wrong!")
 		}
@@ -99,8 +100,8 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 		fmt.Printf("Non-Base vars:\n %v\n\n", currentNonBaseVars)
 
 		for i := range currentNonBaseVars {
-			AN.SetCol(i, AT.RawRowView(i))
-			cNT.SetCol(i, []float64{c.At(0, i)})
+			AN.SetCol(i, AT.RawRowView(currentNonBaseVars[i]-1))
+			cNT.SetCol(i, []float64{c.At(0, currentNonBaseVars[i]-1)})
 		}
 
 		y.Mul(y, AN)
@@ -120,9 +121,14 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 		}
 		if newBaseVar < 0 {
 			// no appropriate value could be found -> algorithm terminates
-			// TODO: return actual result here
-			fmt.Println("done\n\n ")
-			return 13
+			var result float64
+			for i := range currentBaseVars {
+				baseVarIndex := currentBaseVars[i] - 1
+				if baseVarIndex < variablesCount { // to avoid accessing slack variables
+					result += maximize.At(baseVarIndex, 0) * b.At(baseVarIndex, 0)
+				}
+			}
+			return result
 		}
 		fmt.Printf("new base var:\n %v\n\n", newBaseVar)
 		fmt.Printf("a vector:\n %v\n\n", mat.Formatted(a, mat.Prefix(" "), mat.Excerpt(8)))
@@ -130,12 +136,52 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 		// step 3: calculate Bd = a
 		a.Mul(Bi, a)
 
-		// step 4: find t so that b - t * d ≥ 0
-		// TODO
-
 		fmt.Printf("d vector:\n %v\n\n", mat.Formatted(a, mat.Prefix(" "), mat.Excerpt(8)))
 
-		i++
+		// step 4: find largest t so that b - t * d ≥ 0
+		// 5 - t * 2 = 0
+		// ==> t = 5/2
+		lowest := -1.0
+		lowestIndex := -1
+		lowestValueOfT := 0.0
+		for i := range currentBaseVars {
+			baseValue := b.At(i, 0)
+			dValue := a.At(i, 0)
+			if dValue > 0 {
+				tValue := baseValue / dValue
+				//fmt.Println(tValue)
+				if lowest < 0 || tValue < lowest {
+					lowest = tValue
+					lowestIndex = i
+					lowestValueOfT = tValue
+				}
+			}
+			//fmt.Println(baseValue)
+		}
+		if lowest <= 0 {
+			fmt.Println("couldn't find appropriate t value")
+			return 0 // TODO: check what needs to be done here
+		}
+
+		// step 5: update
+		for i := range currentBaseVars {
+			if i == lowestIndex {
+				b.SetVec(i, lowest)
+				currentBaseVars[lowestIndex] = newBaseVar
+			} else {
+				b.SetVec(i, b.At(i, 0)-lowestValueOfT*a.At(i, 0))
+			}
+		}
+		fmt.Printf("new b vector:\n %v\n\n", mat.Formatted(b, mat.Prefix(" "), mat.Excerpt(8)))
+		fmt.Printf("new base vars:\n %v\n\n", currentBaseVars)
+
+		fmt.Println("--------------------------------------------------------")
+		fmt.Printf("iteration: %v\n", iterations)
+
+		// fmt.Println(lowestIndex)
+		// fmt.Println(lowest)
+
+		iterations++
 	}
 
 	// TODO: return actual result here
