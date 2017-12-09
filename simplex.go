@@ -185,7 +185,7 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 	}
 
 	// TODO: return actual result here
-	return 13
+	return 0 // TODO: check what needs to be done here
 }
 
 func contains(s []int, e int) bool {
