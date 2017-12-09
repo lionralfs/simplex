@@ -38,3 +38,20 @@ func TestSimplex2(t *testing.T) {
 		t.Fatalf("Expected %f but got %f", expectedResult, actualResult)
 	}
 }
+
+func TestSimplex3(t *testing.T) {
+	// create new example matrix
+	maximize := mat.NewVecDense(3, []float64{2, 3, 2})
+
+	constraints := mat.NewDense(3, 4, []float64{
+		1, 1, 0, 8,
+		0, 1, 2, 12,
+		0, 1, 1, 7})
+
+	actualResult := Solve(maximize, constraints)
+	var expectedResult float64 = 28
+
+	if actualResult != expectedResult {
+		t.Fatalf("Expected %f but got %f", expectedResult, actualResult)
+	}
+}
