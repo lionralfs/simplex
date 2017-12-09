@@ -40,14 +40,14 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 	// construct b vector
 	bTemp := make([]float64, constraintCount, constraintCount)
 	for i := 0; i < constraintCount; i++ {
-		bTemp[i] = constraints.At(i, constraintCount)
+		bTemp[i] = constraints.At(i, variablesCount)
 	}
 	b := mat.NewVecDense(constraintCount, bTemp)
 
 	// initialize current base variables (first iteration: all slack variables)
 	currentBaseVars := make([]int, constraintCount, constraintCount)
 	for i := range currentBaseVars {
-		currentBaseVars[i] = constraintCount + i + 1
+		currentBaseVars[i] = variablesCount + i + 1
 	}
 
 	fmt.Printf("Current base vars:\n %v\n\n", currentBaseVars)
@@ -60,8 +60,9 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 
 	// start iterating
 	iterations := 0
+	maxIterations := 10
 	for {
-		if iterations > 2 {
+		if iterations > maxIterations {
 			break
 		}
 
@@ -104,16 +105,17 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 			cNT.SetCol(i, []float64{c.At(0, currentNonBaseVars[i]-1)})
 		}
 
-		y.Mul(y, AN)
+		yTAN := mat.NewDense(1, variablesCount, nil)
+		yTAN.Mul(y, AN)
 
+		fmt.Printf("y^T A_N vector:\n %v\n\n", mat.Formatted(yTAN, mat.Prefix(" "), mat.Excerpt(8)))
 		fmt.Printf("AN matrix:\n %v\n\n", mat.Formatted(AN, mat.Prefix(" "), mat.Excerpt(8)))
-		fmt.Printf("y^T A_N vector:\n %v\n\n", mat.Formatted(y, mat.Prefix(" "), mat.Excerpt(8)))
 		fmt.Printf("cNT vector:\n %v\n\n", mat.Formatted(cNT, mat.Prefix(" "), mat.Excerpt(8)))
 
 		newBaseVar := -1
 		a := mat.NewDense(constraintCount, 1, nil)
 		for i := range currentNonBaseVars {
-			if cNT.At(0, i) > y.At(0, i) {
+			if cNT.At(0, i) > yTAN.At(0, i) {
 				newBaseVar = currentNonBaseVars[i]
 				a.SetCol(0, AT.RawRowView(newBaseVar-1))
 				break
@@ -125,7 +127,8 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 			for i := range currentBaseVars {
 				baseVarIndex := currentBaseVars[i] - 1
 				if baseVarIndex < variablesCount { // to avoid accessing slack variables
-					result += maximize.At(baseVarIndex, 0) * b.At(baseVarIndex, 0)
+					fmt.Printf("b vector:\n %v\n\n", mat.Formatted(b, mat.Prefix(" "), mat.Excerpt(8)))
+					result += maximize.At(baseVarIndex, 0) * b.At(i, 0)
 				}
 			}
 			return result
@@ -139,8 +142,6 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 		fmt.Printf("d vector:\n %v\n\n", mat.Formatted(a, mat.Prefix(" "), mat.Excerpt(8)))
 
 		// step 4: find largest t so that b - t * d ≥ 0
-		// 5 - t * 2 = 0
-		// ==> t = 5/2
 		lowest := -1.0
 		lowestIndex := -1
 		lowestValueOfT := 0.0
