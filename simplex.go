@@ -112,16 +112,26 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 		fmt.Printf("AN matrix:\n %v\n\n", mat.Formatted(AN, mat.Prefix(" "), mat.Excerpt(8)))
 		fmt.Printf("cNT vector:\n %v\n\n", mat.Formatted(cNT, mat.Prefix(" "), mat.Excerpt(8)))
 
-		newBaseVar := -1
+		newBaseVar := variablesCount + constraintCount + 1
+		var largestVal float64
+		hasLargestVal := false
 		a := mat.NewDense(constraintCount, 1, nil)
 		for i := range currentNonBaseVars {
+			// we found possible new base var
 			if cNT.At(0, i) > yTAN.At(0, i) {
-				newBaseVar = currentNonBaseVars[i]
-				a.SetCol(0, AT.RawRowView(newBaseVar-1))
-				break
+				// it is larger than the largest value we found so far
+				// and the index is smaller than the one of the largest value
+				if !hasLargestVal || cNT.At(0, i) >= largestVal {
+					if currentNonBaseVars[i] < newBaseVar {
+						newBaseVar = currentNonBaseVars[i]
+						largestVal = cNT.At(0, i)
+						hasLargestVal = true
+					}
+				}
 			}
 		}
-		if newBaseVar < 0 {
+		fmt.Printf("new base var:\n %v\n\n", newBaseVar)
+		if !hasLargestVal {
 			// no appropriate value could be found -> algorithm terminates
 			var result float64
 			for i := range currentBaseVars {
@@ -133,7 +143,9 @@ func Solve(maximize mat.Vector, constraints *mat.Dense) float64 {
 			}
 			return result
 		}
-		fmt.Printf("new base var:\n %v\n\n", newBaseVar)
+
+		a.SetCol(0, AT.RawRowView(newBaseVar-1))
+
 		fmt.Printf("a vector:\n %v\n\n", mat.Formatted(a, mat.Prefix(" "), mat.Excerpt(8)))
 
 		// step 3: calculate Bd = a
