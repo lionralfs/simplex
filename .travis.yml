@@ -1,0 +1,7 @@
+language: go
+
+before_install:
+  - go get -v gonum.org/v1/gonum/mat
+
+script:
+  - go test -v
