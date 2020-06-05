@@ -5,3 +5,5 @@
 
 The [simplex algorithm](https://en.wikipedia.org/wiki/Simplex_algorithm)
 implemented in Go.
+
+**NOTE**: This is **not** production-ready at all.
